@@ -22,23 +22,22 @@ def get_request_params(period_days=7):
     return request_url, params
 
 
-def get_response():
-    request_url, params = get_request_params()
-
+def get_repositories_list(request_params):
+    request_url, params = request_params
     response = requests.get(request_url, params=params)
 
-    if not response.status_code == requests.codes.ok:
+    if not response.ok:
         return None
 
-    return response
+    return response.json()['items']
 
 
-def get_open_issues(full_name):
+def get_open_issues_count(full_name):
     api_url = get_api_url()
     request_url = '{}/repos/{}/issues'.format(api_url, full_name)
     response = requests.get(request_url)
 
-    if not response.status_code == requests.codes.ok:
+    if not response.ok:
         return 'N/A'
 
     open_issues_count = 0
@@ -53,32 +52,31 @@ def get_open_issues(full_name):
 def output_repositories_to_console(repositories_info):
     print('Trending repositories:', '\n')
     for repository in repositories_info:
-        template = ('{url}\nStars: {stars}\nOpen Issues: '
-                    '{open_issues}\n').format(**repository)
+        template = ('{html_url}\nStars: {stargazers_count}\nOpen Issues: '
+                    '{open_issues_from_api}\n').format(**repository)
         print(template)
 
 
-def get_repositories_info(repositories_data):
-    repositories_list = repositories_data['items']
+def get_additional_info(repositories_list):
     repositories_info = []
     repositories_count = 20
 
-    for repo in repositories_list[:repositories_count]:
-        repo_data = {}
-        repo_data['url'] = repo['html_url']
-        repo_data['stars'] = repo['stargazers_count']
-        repo_data['open_issues'] = get_open_issues(repo['full_name'])
-        repositories_info.append(repo_data)
+    repositories_list = repositories_list[:repositories_count]
 
-    return repositories_info
+    for repo in repositories_list:
+        repo['open_issues_from_api'] = get_open_issues_count(repo['full_name'])
+
+    return repositories_list
 
 
 if __name__ == '__main__':
-    response = get_response()
+    request_params = get_request_params()
 
-    if not response:
+    repositories_list = get_repositories_list(request_params)
+
+    if not repositories_list:
         sys.exit('Failed to connect to Github')
 
-    repositories_info = get_repositories_info(response.json())
+    repositories_info = get_additional_info(repositories_list)
 
     output_repositories_to_console(repositories_info)
